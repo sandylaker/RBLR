@@ -3,15 +3,16 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
+from mestimator import MEstimator
 
-n, n_1 = int(1e5), int(5e4)
-p = 20
+n, n_1 = int(1e4), int(1e3)
+p = 2
 multi_mean = np.zeros(p)
 multi_cov = np.eye(p)
 
-X_good = np.random.multivariate_normal(multi_mean, multi_cov, size=n)*100 + 100000
+X_good = np.random.multivariate_normal(multi_mean, multi_cov, size=n)*5 + 10
 # outlier = np.random.multivariate_normal(multi_mean, multi_cov, size=n_1)*1 + 10
-outlier = np.random.uniform(-1, 1, (n_1, p))*100 + 1e8
+outlier = np.random.uniform(-1, 1, (n_1, p))*5 + 50
 if len(outlier) != 0:
     X = np.concatenate((X_good, outlier), axis=0)
 else:
@@ -25,8 +26,17 @@ print("Probability: %.2f" % (1 - p**(-2)))
 X_norm = np.linalg.norm(X, axis=1)
 print("max(X_norm): %f" % np.max(X_norm))
 
+
 T = 4 * np.sqrt((np.log(p) + np.log(n)))
-T = T * np.max(np.median(np.abs(X), axis=0))
+# use MADN
+# T = T * np.max(np.median(np.abs(X), axis=0)) * 1.48
+
+# use M-estimator of scale
+m_est = MEstimator()
+m_scale = m_est.scale_estimator(X, axis=0)
+print('len(m_scale): ', len(m_scale))
+T = T * np.max(m_scale)
+
 
 X_in = X[np.where(X_norm < T)[0]]
 X_out = X[np.where(X_norm >= T)[0]]
