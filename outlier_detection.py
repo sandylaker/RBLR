@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from mestimator import MEstimator
 
-n, n_1 = int(1e4), int(1e3)
-p = 2
+n, n_1 = int(1e3), int(1e2)
+p = 20
 multi_mean = np.zeros(p)
 multi_cov = np.eye(p)
 
-X_good = np.random.multivariate_normal(multi_mean, multi_cov, size=n)*5 + 10
+X_good = np.random.multivariate_normal(multi_mean, multi_cov, size=n)*1
 # outlier = np.random.multivariate_normal(multi_mean, multi_cov, size=n_1)*1 + 10
-outlier = np.random.uniform(-1, 1, (n_1, p))*5 + 50
+outlier = np.random.uniform(-1, 1, (n_1, p))*10
 if len(outlier) != 0:
     X = np.concatenate((X_good, outlier), axis=0)
 else:
