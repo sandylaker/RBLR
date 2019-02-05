@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from mestimator import MEstimator
 
 n, n_1 = int(1e3), int(1e2)
-p = 20
+p = 2
 multi_mean = np.zeros(p)
 multi_cov = np.eye(p)
 
