@@ -32,14 +32,14 @@ def simulation_setup(n_i=1000,
     :param n_t: int, number of test observation
     :param p: int, number of dimension
     :param mu_i: ndarray, location of the inliers
-    :param sigma_i: float, standard deviation of the inliers
+    :param sigma_i: float, standard deviation of each feature of the inliers
     :param sigma_e: float, standard deviation of the gaussian noise
-    :param sigma_o: float, standard deviation of the outliers
+    :param sigma_o: float, standard deviation of each feature of the outliers
     :param to_csv: boolean, if True, the generated train and test data will be written
                     into csv files
     :return: tuple, tuple containing ndarray of train data with shape(n_i+n_o,p+1), test data with shape(n_t,p+1),
             ndarray of beta. Here beta is the true value of the coefficients in the logistic model. The last columns
-            of train and test data are labels of {1,0}
+            of train and test data are labels of {1,0} of datatype float64
     """
     if mu_i is None:
         mu_i = np.zeros(p)

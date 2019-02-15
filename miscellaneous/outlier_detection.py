@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
 from mestimator import MEstimator
 
 n, n_1 = int(1e3), int(1e2)

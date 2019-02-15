@@ -1,10 +1,6 @@
 import numpy as np
-from statsmodels import robust
 from bisquare import Bisquare
-import matplotlib
-matplotlib.use('Qt5Agg')
-import matplotlib.pyplot as plt
-
+import time
 
 class MEstimator:
     def __init__(self, clipping=4.685):
@@ -23,7 +19,6 @@ class MEstimator:
         :param tor: float, error tolerance level, in interval (0,1)
         :return: ndarray
         """
-
         def unit_scale_estimator(element, maxiter, tor):
             element = np.array(element, dtype=np.float)
             element = element - np.median(element)
@@ -56,7 +51,6 @@ class MEstimator:
         :param tor: float in interval (0,1) , error tolerance level
         :return: ndarray
         """
-
         def unit_loc_estimator(element, maxiter, tor):
             element = np.array(element, dtype=np.float)
             # initial estimator of scale
@@ -89,8 +83,10 @@ if __name__ == '__main__':
     #     m_scales[i] = scale
     # plt.plot(iters, m_scales)
     # plt.show()
+    t1 = time.time()
     print('ultimate_scale: %f'%(M_est.scale_estimator(data, maxiter=50)))
     # print('kappa: ', np.mean( M_est.biweight.rho(np.random.randn(int(1e6)))))
     print('ultimate_loc: %f'%(M_est.loc_estimator(data, maxiter=50)))
+    print('consumed time: %.5f s' % (time.time() - t1))
     print('std: %f'%(np.std(data, ddof=1)))
     print('median: %f'%(np.median(data)))

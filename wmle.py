@@ -7,6 +7,8 @@ from scipy.optimize import fmin_tnc
 from simulation_setup import simulation_setup
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+import time
+from numba import jit
 
 
 class WMLE:
@@ -63,17 +65,18 @@ class WMLE:
         self.beta = optimal[0] / np.linalg.norm(optimal[0])
         return self
 
-    def predict(self, X_test):
+    def predict(self, X_predict, prob_threshold):
         ss = StandardScaler()
-        X_test = ss.fit_transform(X_test)
+        X_predict = ss.fit_transform(X_predict)
         if self.beta is None:
             raise ValueError("MLE Model is not fitted yet")
-        # X_test = np.concatenate((np.ones(X_test.shape[0], 1), X_test), axis=1)
-        return self.probability(self.beta, X_test)
+        # X_predict = np.concatenate((np.ones(X_predict.shape[0], 1), X_predict), axis=1)
+        predict_prob = self.probability(self.beta, X_predict)
+        return np.array(predict_prob >= prob_threshold, dtype=int)
 
-    def accuracy(self, X_test, y_test, prob_threshold=0.5):
+    def score(self, X_test, y_test, prob_threshold=0.5):
         y_test = np.array(y_test, dtype=int)
-        y_predicted = (self.predict(X_test) >= prob_threshold).astype(int)
+        y_predicted = self.predict(X_test, prob_threshold)
         accuracy = np.mean(y_predicted == y_test)
         return accuracy
 
@@ -84,10 +87,12 @@ if __name__ == '__main__':
     X_train, y_train = data_train[:, :-1], data_train[:, -1].astype(int)
     X_test, y_test = data_test[:, :-1], data_test[:, -1].astype(int)
     wmle = WMLE()
+    t1 = time.time()
     wmle.fit(X_train, y_train)
-    print("wmle accuracy: ", wmle.accuracy(X_test, y_test))
+    print("wmle accuracy: ", wmle.score(X_test, y_test))
     print("wmle coefficients: \n", wmle.beta)
     print("norm of coefficients: ", np.sqrt(np.sum(wmle.beta ** 2)))
+    print('wmle consumed time: %.5f s' % (time.time() - t1))
 
     lr = LogisticRegression(fit_intercept=False, solver='lbfgs')
     lr.fit(X_train, y_train)

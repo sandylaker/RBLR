@@ -10,5 +10,6 @@ def sigmoid(z):
     return 1 / (1 + np.exp(-z))
 
 
+
 if __name__ == '__main__':
     tau = sigmoid(np.arange(10))
