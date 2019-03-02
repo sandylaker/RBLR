@@ -1,38 +1,54 @@
 import numpy as np
-from huber import Huber
+from bisquare import Bisquare
 from sklearn.covariance import MinCovDet
-import matplotlib.pyplot as plt
 from util_funcs import sigmoid
-from scipy.optimize import fmin_tnc
+from scipy.optimize import fmin_l_bfgs_b
 from simulation_setup import simulation_setup
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+from mestimator import MEstimator
 import time
-from numba import jit
 
 
 class WMLE:
 
-    def __init__(self, clipping=1.345):
-        self.huber = Huber(clipping=clipping)
+    def __init__(self, clipping=4.685, fit_intercept=True, warm_start=False):
+        self.bisquare = Bisquare(clipping=clipping)
         self.beta = None
+        self.warm_start_flag = warm_start
+        if warm_start:
+            self.beta_last_fit = []
+        self.fit_intercept = fit_intercept
+        self.intercept_ = None
+        self.coef_ = None
+
+    def set_beta(self, beta):
+        self.beta = beta
 
     def leverage(self, X):
         mcd = MinCovDet()
-        mcd.fit(X=X)
+        if self.fit_intercept:
+            mcd.fit(X[:, 1:])
+        else:
+            mcd.fit(X=X)
         loc, cov = mcd.location_, mcd.covariance_
         inversed_cov = np.linalg.inv(cov)
-        result = np.zeros(len(X))
-        for i, element in enumerate(X):
-            h = np.sqrt(
-                np.transpose(element - loc) @ inversed_cov @ (element - loc))
-            result[i] = h
-
+        result = np.zeros(X.shape[0])
+        if self.fit_intercept:
+            for i, element in enumerate(X[:, 1:]):
+                h = np.sqrt(
+                    np.transpose(element - loc) @ inversed_cov @ (element - loc))
+                result[i] = h
+        else:
+            for i, element in enumerate(X):
+                h = np.sqrt(
+                    np.transpose(element - loc) @ inversed_cov @ (element - loc))
+                result[i] = h
         return result
 
     def weights_factor(self, X):
         leverage = self.leverage(X)
-        return self.huber.m_weights(leverage)
+        return self.bisquare.m_weights(leverage)
 
     def probability(self, beta, X):
         return sigmoid(np.dot(X, beta))
@@ -42,6 +58,7 @@ class WMLE:
         epsilon = 1e-5
         n = X.shape[0]
         weights = self.weights_factor(X)
+
         total_cost = - (1/n) * np.sum(weights[:, np.newaxis] * (
             y * np.log(self.probability(beta, X) + epsilon) +
             (1 - y) * np.log(1 - self.probability(beta, X) + epsilon)))
@@ -54,24 +71,48 @@ class WMLE:
         return (1/n) * np.dot(np.transpose(X), sigmoid(np.dot(X, beta)) - y)
 
     def fit(self, X, y):
-        # X = np.concatenate((np.ones((X.shape[0], 1)), X), axis=1)
-        self.beta = np.zeros(X.shape[1])
-        ss = StandardScaler()
-        X = ss.fit_transform(X)
-        optimal = fmin_tnc(func=self.cost_function,
-                            x0=self.beta,
+        m_estimator = MEstimator()
+        loc = m_estimator.loc_estimator(arr=X, axis=0)
+        scale = m_estimator.scale_estimator(arr=X, axis=0)
+        X = (X - loc)/scale
+
+        if self.fit_intercept:
+            X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
+
+        if not self.warm_start_flag:
+            x0 = np.ones(X.shape[1])
+        else:
+            if len(self.beta_last_fit) == 0:
+                x0 = np.ones(X.shape[1])
+            else:
+                x0 = self.beta_last_fit.pop()
+
+        optimal = fmin_l_bfgs_b(func=self.cost_function,
+                            x0=x0,
                             fprime=self.gradient,
                             args=(X, y))
-        self.beta = optimal[0] / np.linalg.norm(optimal[0])
+        if self.warm_start_flag:
+            self.beta_last_fit.append(optimal[0])
+        beta_norm = np.linalg.norm(optimal[0])
+
+        if beta_norm < 1e-4:
+            self.beta = optimal[0]
+        else:
+            self.beta = optimal[0] / np.linalg.norm(optimal[0])
+
+        if self.fit_intercept:
+            self.intercept_ = self.beta[0]
+        self.coef_ = self.beta[self.fit_intercept:]
         return self
 
-    def predict(self, X_predict, prob_threshold):
-        ss = StandardScaler()
-        X_predict = ss.fit_transform(X_predict)
+    def predict(self, X, prob_threshold):
         if self.beta is None:
             raise ValueError("MLE Model is not fitted yet")
-        # X_predict = np.concatenate((np.ones(X_predict.shape[0], 1), X_predict), axis=1)
-        predict_prob = self.probability(self.beta, X_predict)
+        ss = StandardScaler()
+        X = ss.fit_transform(X)
+        if self.fit_intercept:
+            X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
+        predict_prob = self.probability(self.beta, X)
         return np.array(predict_prob >= prob_threshold, dtype=int)
 
     def score(self, X_test, y_test, prob_threshold=0.5):
@@ -82,19 +123,25 @@ class WMLE:
 
 
 if __name__ == '__main__':
-    data_train, data_test, beta_actual = simulation_setup(
-        n_i=1000, n_o=20, n_t=1000, p=20, sigma_e= 0.5)
-    X_train, y_train = data_train[:, :-1], data_train[:, -1].astype(int)
-    X_test, y_test = data_test[:, :-1], data_test[:, -1].astype(int)
-    wmle = WMLE()
-    t1 = time.time()
-    wmle.fit(X_train, y_train)
-    print("wmle accuracy: ", wmle.score(X_test, y_test))
-    print("wmle coefficients: \n", wmle.beta)
-    print("norm of coefficients: ", np.sqrt(np.sum(wmle.beta ** 2)))
-    print('wmle consumed time: %.5f s' % (time.time() - t1))
+    X_train, y_train, X_test, y_test = simulation_setup(
+        n_i=1000, n_o=300, n_t=1000, p=10, sigma_e=0.25)
+    # wmle = WMLE(fit_intercept=True)
+    # t1 = time.time()
+    # wmle.fit(X_train, y_train)
+    #
+    # lr = LogisticRegression(fit_intercept=True, solver='lbfgs')
+    # lr.fit(X_train, y_train)
+    #
+    # print("WMLE accuracy: ", wmle.score(X_test, y_test))
+    # print("Classical LR accuracy: ", lr.score(X_test, y_test))
+    # print('wmle consumed time: %.5f s' % (time.time() - t1))
 
-    lr = LogisticRegression(fit_intercept=False, solver='lbfgs')
-    lr.fit(X_train, y_train)
-    print("LR accuracy: ", lr.score(X_test, y_test))
-    print("LR coeffcients: \n", lr.coef_[0])
+    wmle = WMLE(fit_intercept=True, warm_start=True)
+    n = 10
+    accuracy_arr = np.zeros(n)
+    t1 = time.time()
+    for i in range(n):
+        wmle.fit(X_train, y_train)
+        accuracy_arr[i] = wmle.score(X_test, y_test)
+    print("elapsed time: %.2f s" % (time.time() - t1))
+    accuracy_arr.sort()

@@ -1,11 +1,13 @@
 import numpy as np
 from bisquare import Bisquare
 import time
+from simulation_setup import simulation_setup
 
 class MEstimator:
     def __init__(self, clipping=4.685):
         """
         :param clipping: clipping constant for bisquare function
+
         """
         self.biweight = Bisquare(clipping=clipping)
 
@@ -33,7 +35,8 @@ class MEstimator:
                 scale_new = np.sqrt(np.dot(weights, np.square(element)) / (len(element) * 0.42))
                 # print("scale_new: %f, scale_old: %f"%(scale_new, scale))
                 # print('diff_scale: ', np.abs(scale_new/scale - 1))
-                if np.abs(scale_new/scale - 1) < tor or np.abs(scale_new/scale -1) > 0.95:
+                if np.abs(scale_new/scale - 1) < tor or \
+                        np.abs(scale_new/scale - 1) > 0.95:
                     break
                 scale = scale_new
             return scale
@@ -70,23 +73,21 @@ class MEstimator:
         # vectorized function
         return np.apply_along_axis(unit_loc_estimator, axis, arr, maxiter=maxiter, tor=tor)
 
+    def fit(self, X, axis=0, maxiter=50, tor=0.001):
+        loc = self.loc_estimator(X, axis=axis, maxiter=maxiter, tor=tor)
+        scale = self.scale_estimator(X, axis=axis, maxiter=maxiter, tor=tor)
+        return loc, scale
+
 
 if __name__ == '__main__':
-    M_est = MEstimator()
-    data_good = np.random.randn(int(1e4)) * 100 + 1000
-    data_bad = np.random.randn(int(5e3)) * 5 + 100
-    data = np.append(data_good, data_bad)
-    # iters = np.arange(1,50)
-    # m_scales = np.zeros(len(iters))
-    # for i in range(len(iters)):
-    #     scale = M_est.scale_estimator(data, maxiter=iters[i])
-    #     m_scales[i] = scale
-    # plt.plot(iters, m_scales)
-    # plt.show()
+    m_est = MEstimator()
+    X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=10,
+                                                        sigma_e=0.25)
+
+
     t1 = time.time()
-    print('ultimate_scale: %f'%(M_est.scale_estimator(data, maxiter=50)))
-    # print('kappa: ', np.mean( M_est.biweight.rho(np.random.randn(int(1e6)))))
-    print('ultimate_loc: %f'%(M_est.loc_estimator(data, maxiter=50)))
+    m_estimated_scale = m_est.scale_estimator(X_train, maxiter=50)
+    m_estimated_loc = m_est.loc_estimator(X_train, maxiter=50)
+    standard_deviation = np.std(X_train, ddof=1, axis=0)
+    median = np.median(X_train, axis=0)
     print('consumed time: %.5f s' % (time.time() - t1))
-    print('std: %f'%(np.std(data, ddof=1)))
-    print('median: %f'%(np.median(data)))

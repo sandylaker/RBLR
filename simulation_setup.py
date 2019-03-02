@@ -9,23 +9,27 @@ def simulation_setup(n_i=1000,
                      p=20,
                      mu_i=None,
                      sigma_i=1,
-                     sigma_e=0.5,
+                     sigma_e=0.25,
                      sigma_o=10,
-                     to_csv=False):
+                     to_csv=False,
+                     return_beta=False):
     """
     generate the train and test data for simulation. Train data of shape
-    :math:`(n_i + n_o, p)` and test data of shape :math:`(n_t, p)` will be generated.
-    By default, train data contains 1000 inliers and 100 outliers, where the inlier covariant matrix
-    conform to multivariate normal distribution :math:`X_in \sim \\mathsf{N}(\\mathbf{0},\\mathbf{\sum_{in}})`,
-    by default, the covariance matrix is a unit matrix :math:`\\mathbf{1}`. The labels of inliers are
-    generated based on :math:`\\mathsf{P}(y_i=1) = H(\\mathbf{\\beta}^T \mathbf{x_i} + v_i)`,
-    where :math:`H(z) = \\frac{1}{1+e^{-z}}` and :math:`v_i \sim N(0, \\sigma_e)` is the gaussian noise, the labels of
-    test data are generated based on
-    :math:`y_i = u(\\mathbf{\\beta}^T \\mathbf{x_i})`,where :math:`u(x) = 1 \\text{for} \\ x \\geq 0, 0 \\text{for}
-    \\ x<0`, the labels of outliers are generated based on
-    :math:`\\mathsf{P}(y_i=1) = u(-\\mathbf{\\beta}^T \mathbf{x_i})`. Then, the labels are concatenated onto
-    the covariante matrix along axis 1(horizontally).
-
+    :math:`(n_i + n_o, p)` and test data of shape :math:`(n_t, p)` will be
+    generated. By default, train data contains 1000 inliers and 100 outliers,
+    where the inlier covariant matrix conform to multivariate normal
+    distribution :math:`X_in \sim \\mathsf{N}(\\mathbf{0},\\mathbf{\sum_{in}})`,
+    by default, the covariance matrix is a unit matrix :math:`\\mathbf{1}`. The outliers are drawn
+    from uniform distribution in range :math:`[-\\sigma_o, \\sigma_o]` in :math:`p` dimensions.
+    The labels of inliers are generated based on :math:`\\mathsf{P}(y_i=1) =
+    H(\\mathbf{\\beta}^T \mathbf{x_i} + v_i)`, where :math:`H(z) = \\frac{1}{
+    1+e^{-z}}` and :math:`v_i \sim N(0, \\sigma_e)` is the gaussian noise, the
+    labels of test data are generated based on :math:`y_i = u(\\mathbf{
+    \\beta}^T \\mathbf{x_i})`,where :math:`u(x) = 1 \\text{for} \\ x \\geq 0, 0
+    \\text{for} \\ x<0`, the labels of outliers are generated based on
+    :math:`\\mathsf{P}(y_i=1) = u(-\\mathbf{\\beta}^T \mathbf{x_i})`. Then, the
+    labels are concatenated onto the covariante matrix along axis 1(
+    horizontally).
 
     :param n_i: int, number of inliers
     :param n_o: int, number of outliers
@@ -34,12 +38,14 @@ def simulation_setup(n_i=1000,
     :param mu_i: ndarray, location of the inliers
     :param sigma_i: float, standard deviation of each feature of the inliers
     :param sigma_e: float, standard deviation of the gaussian noise
-    :param sigma_o: float, standard deviation of each feature of the outliers
+    :param sigma_o: float, outliers will be drawn from an uniform distribution in range [
+                    -sigma_o, sigma_o]
     :param to_csv: boolean, if True, the generated train and test data will be written
                     into csv files
-    :return: tuple, tuple containing ndarray of train data with shape(n_i+n_o,p+1), test data with shape(n_t,p+1),
-            ndarray of beta. Here beta is the true value of the coefficients in the logistic model. The last columns
-            of train and test data are labels of {1,0} of datatype float64
+    :param return_beta: boolean, if True, the array of coefficients used for generating the data
+                    will be returned
+    :return: tuple, (X_train, y_train, X_test, y_test [, beta])
+            labels of y are {1,0}
     """
     if mu_i is None:
         mu_i = np.zeros(p)
@@ -53,7 +59,7 @@ def simulation_setup(n_i=1000,
     beta = beta[0] / np.linalg.norm(beta)
 
     # sample X_i of good data
-    X_i = np.random.multivariate_normal(mu_i, np.eye(p) * sigma_i, size=n_i)
+    X_i = np.random.multivariate_normal(mu_i, np.eye(p) * (sigma_i ** 2), size=n_i)
     # gaussian noise of good samples
     noise_i = np.random.randn(n_i) * sigma_e
 
@@ -65,12 +71,12 @@ def simulation_setup(n_i=1000,
     y_i = y_i.astype(int)
 
     # test sample
-    X_t = np.random.multivariate_normal(mu_i, np.eye(p) * sigma_i, size=n_t)
+    X_test = np.random.multivariate_normal(mu_i, np.eye(p) * (sigma_i ** 2), size=n_t)
     # generate label of test samples
-    y_t = np.greater_equal(
+    y_test = np.greater_equal(
         np.dot(
             beta,
-            X_t.T) +
+            X_test.T) +
         np.random.randn(n_t) *
         sigma_e, 0).astype(int)
 
@@ -81,26 +87,33 @@ def simulation_setup(n_i=1000,
     # generate labels of outliers
     y_o = np.greater_equal(np.dot(- beta, X_o.T) + noise_o, 0).astype(int)
 
-    # concatenate the data into a dataframe
-    y_i = y_i[:, np.newaxis]
-    df_i = pd.DataFrame(data=np.concatenate((X_i, y_i), axis=1))
-
-    y_t = y_t[:, np.newaxis]
-    df_t = pd.DataFrame(data=np.concatenate((X_t, y_t), axis=1))
-
-    y_o = y_o[:, np.newaxis]
-    df_o = pd.DataFrame(data=np.concatenate((X_o, y_o), axis=1))
-
-    # concatenate the good data and oulier data into a dataframe for training
-    df_train = pd.concat([df_i, df_o], ignore_index=True)
-
     if to_csv:
+        # concatenate the data into a dataframe
+        y_i = y_i[:, np.newaxis]
+        df_i = pd.DataFrame(data=np.concatenate((X_i, y_i), axis=1))
+
+        y_test = y_test[:, np.newaxis]
+        df_test = pd.DataFrame(data=np.concatenate((X_test, y_test), axis=1))
+
+        y_o = y_o[:, np.newaxis]
+        df_o = pd.DataFrame(data=np.concatenate((X_o, y_o), axis=1))
+
+        # concatenate the good data and oulier data into a dataframe for training
+        df_train = pd.concat([df_i, df_o], ignore_index=True)
         # write into csv
         df_train.to_csv('data_train.csv', index=False)
-        df_t.to_csv('data_test.csv', index=False)
+        df_test.to_csv('data_test.csv', index=False)
         print('sucessfully written into csv')
-    return df_train.values, df_t.values, beta
+
+    # concatenate X_i ,X_o and y_i, y_o
+    X_train = np.concatenate((X_i, X_o), axis=0)
+    y_train = np.concatenate((y_i, y_o), axis=0)
+
+    if return_beta:
+        return X_train, y_train, X_test, y_test, beta
+    else:
+        return X_train, y_train, X_test, y_test
 
 
 if __name__ == '__main__':
-    data_train, data_test, beta = simulation_setup()
+    X_train, y_train, X_test, y_test = simulation_setup()
