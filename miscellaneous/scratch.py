@@ -1,9 +1,9 @@
 import numpy as np
 from sklearn.linear_model import  LogisticRegression
-from simulation_setup import simulation_setup
-from influence_function_bootstrap import IFB
-from sklearn.metrics import classification_report, precision_recall_fscore_support
-from preprocessing import Preprocessor
+from rblr.simulation_setup import simulation_setup
+from rblr.influence_function_bootstrap import IFB
+from sklearn.metrics import precision_recall_fscore_support
+from rblr.preprocessing import Preprocessor
 
 import matplotlib.pyplot as plt
 

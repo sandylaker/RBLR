@@ -1,5 +1,5 @@
-from simulation_setup import simulation_setup
-from mestimator import MEstimator
+from rblr.simulation_setup import simulation_setup
+from rblr.mestimator import MEstimator
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 import pandas as pd

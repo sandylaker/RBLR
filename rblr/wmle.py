@@ -1,19 +1,18 @@
 import numpy as np
-from bisquare import Bisquare
+from rblr.huber import Huber
 from sklearn.covariance import MinCovDet
-from util_funcs import sigmoid
+from rblr.util_funcs import sigmoid
 from scipy.optimize import fmin_l_bfgs_b
-from simulation_setup import simulation_setup
-from sklearn.linear_model import LogisticRegression
+from rblr.simulation_setup import simulation_setup
 from sklearn.preprocessing import StandardScaler
-from mestimator import MEstimator
+from rblr.mestimator import MEstimator
 import time
 
 
 class WMLE:
 
-    def __init__(self, clipping=4.685, fit_intercept=True, warm_start=False):
-        self.bisquare = Bisquare(clipping=clipping)
+    def __init__(self, clipping=1.345, fit_intercept=True, warm_start=False):
+        self.huber = Huber(clipping=clipping)
         self.beta = None
         self.warm_start_flag = warm_start
         if warm_start:
@@ -21,6 +20,7 @@ class WMLE:
         self.fit_intercept = fit_intercept
         self.intercept_ = None
         self.coef_ = None
+        self.lbfgs_warnflag_record = None
 
     def set_beta(self, beta):
         self.beta = beta
@@ -48,7 +48,7 @@ class WMLE:
 
     def weights_factor(self, X):
         leverage = self.leverage(X)
-        return self.bisquare.m_weights(leverage)
+        return self.huber.m_weights(leverage)
 
     def probability(self, beta, X):
         return sigmoid(np.dot(X, beta))
@@ -91,6 +91,8 @@ class WMLE:
                             x0=x0,
                             fprime=self.gradient,
                             args=(X, y))
+        self.lbfgs_warnflag_record = optimal[-1]['warnflag']
+
         if self.warm_start_flag:
             self.beta_last_fit.append(optimal[0])
         beta_norm = np.linalg.norm(optimal[0])

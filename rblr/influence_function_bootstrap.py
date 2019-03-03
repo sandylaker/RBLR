@@ -2,8 +2,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.covariance import MinCovDet
 from sklearn.preprocessing import StandardScaler
-from matplotlib import pyplot as plt
-from util_funcs import sigmoid
+from rblr.util_funcs import sigmoid
 
 class IFB:
 

@@ -1,8 +1,8 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from simulation_setup import simulation_setup
-from util_funcs import sigmoid
+from rblr.simulation_setup import simulation_setup
+from rblr.util_funcs import sigmoid
 
 class ClassicalBootstrap:
 

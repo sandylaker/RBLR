@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from util_funcs import sigmoid
+from rblr.util_funcs import sigmoid
 
 
 def simulation_setup(n_i=1000,

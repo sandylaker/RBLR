@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from mestimator import MEstimator
+from rblr.mestimator import MEstimator
 
 n, n_1 = int(1e3), int(1e2)
 p = 2

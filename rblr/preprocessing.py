@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from mestimator import MEstimator
-from simulation_setup import simulation_setup
+from rblr.mestimator import MEstimator
+from rblr.simulation_setup import simulation_setup
 
 class Preprocessor(MEstimator):
 

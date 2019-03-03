@@ -1,8 +1,7 @@
 import numpy as np
-import cvxpy as cp
-from simulation_setup import simulation_setup
-from util_funcs import sigmoid
-from scipy.optimize import minimize, fmin_tnc
+from rblr.simulation_setup import simulation_setup
+from rblr.util_funcs import sigmoid
+from scipy.optimize import fmin_tnc
 from sklearn.linear_model import LogisticRegression
 
 

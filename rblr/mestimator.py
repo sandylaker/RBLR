@@ -1,7 +1,7 @@
 import numpy as np
-from bisquare import Bisquare
+from rblr.bisquare import Bisquare
 import time
-from simulation_setup import simulation_setup
+from rblr.simulation_setup import simulation_setup
 
 class MEstimator:
     def __init__(self, clipping=4.685):
