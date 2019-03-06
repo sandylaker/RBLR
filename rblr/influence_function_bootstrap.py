@@ -11,7 +11,8 @@ class IFB:
         the robust Logistic Regression model based on influence function bootstrap(IFB).
 
         :param c: double, optional,
-            turning constant of the psi function in calculating weights in IFB.
+            turning constant of the psi function in calculating weights in IFB. If not given, c will be assigned with
+            value calculated using the quantile factor in fit function
 
         :param gamma: double, default: 10,
             a parameter in the psi function in calculating weights in IFB.
@@ -23,7 +24,7 @@ class IFB:
         self.gamma = gamma
         self.beta = None
         self.fit_intercept = fit_intercept
-        self.intercept_ = None
+        self.intercept_ = [0]
         self.coef_ = None
 
     def resif(self, X):
@@ -168,7 +169,8 @@ class IFB:
         # sample with this index will generate a matrix
         # of shape(N_bootstrap, N_sample_pro_bootstrap, p_feature + 1)
         # we will draw the same number of observations as X in every bootstrap sample
-        sample_index = np.random.choice(X_index, size=(n_bootstrap, n_samples_each_bootstrap), p=p)
+        sample_index = np.random.choice(X_index, size=(n_bootstrap, n_samples_each_bootstrap),
+                                        p=p, replace=True)
         bootstrap_samples = X_concat[sample_index]
         # print('bootstrap samples shape: ', bootstrap_samples.shape, '\n')
 
@@ -179,20 +181,14 @@ class IFB:
             y_b = X_concat_b[:, -1]
             clf = LogisticRegression(fit_intercept=self.fit_intercept, solver=solver, **kwargs)
             clf.fit(X_b, y_b)
-            if self.fit_intercept:
-                self.beta.append(np.concatenate((clf.intercept_, clf.coef_[0])))
-            else:
-                self.beta.append(clf.coef_[0])
+            self.beta.append(np.concatenate((clf.intercept_, clf.coef_[0])))
 
         self.beta = np.mean(self.beta, axis=0)
-        # normalize the average of coefficients
-        self.beta = self.beta/np.linalg.norm(self.beta)
-        if self.fit_intercept:
-            self.intercept_ = self.beta[1:]
-        self.coef_ = self.beta[self.fit_intercept:]
+
+        self.intercept_[0] = self.beta[0]
+        self.coef_ = self.beta[1:]
         return self
 
-    # TODO predict function and score function not implemented
     def predict(self, X, prob_threshold=0.5):
         """
         predict labels for test data
@@ -210,8 +206,7 @@ class IFB:
         X = ss.fit_transform(X)
         if self.beta is None:
             raise ValueError("Model is not fitted yet")
-        if self.fit_intercept:
-            X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
+        X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
         predict_prob = sigmoid(np.dot(X, self.beta))
         return np.array(predict_prob >= prob_threshold, dtype=int)
 

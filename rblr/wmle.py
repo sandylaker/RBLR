@@ -18,32 +18,24 @@ class WMLE:
         if warm_start:
             self.beta_last_fit = []
         self.fit_intercept = fit_intercept
-        self.intercept_ = None
+        self.intercept_ = [0]
         self.coef_ = None
-        self.lbfgs_warnflag_record = None
+        self.lbfgs_warnflag_record = 1
 
     def set_beta(self, beta):
         self.beta = beta
 
     def leverage(self, X):
         mcd = MinCovDet()
-        if self.fit_intercept:
-            mcd.fit(X[:, 1:])
-        else:
-            mcd.fit(X=X)
+        # in fit X is concatenated with a columns of 1s
+        mcd.fit(X)
         loc, cov = mcd.location_, mcd.covariance_
         inversed_cov = np.linalg.inv(cov)
         result = np.zeros(X.shape[0])
-        if self.fit_intercept:
-            for i, element in enumerate(X[:, 1:]):
-                h = np.sqrt(
-                    np.transpose(element - loc) @ inversed_cov @ (element - loc))
-                result[i] = h
-        else:
-            for i, element in enumerate(X):
-                h = np.sqrt(
-                    np.transpose(element - loc) @ inversed_cov @ (element - loc))
-                result[i] = h
+        for i, element in enumerate(X):
+            h = np.sqrt(
+                np.transpose(element - loc) @ inversed_cov @ (element - loc))
+            result[i] = h
         return result
 
     def weights_factor(self, X):
@@ -57,7 +49,8 @@ class WMLE:
         # add an small offset to avoid Runtimewarning in log function
         epsilon = 1e-5
         n = X.shape[0]
-        weights = self.weights_factor(X)
+        # X is concatenated with one column of 1s
+        weights = self.weights_factor(X[:, 1:])
 
         total_cost = - (1/n) * np.sum(weights[:, np.newaxis] * (
             y * np.log(self.probability(beta, X) + epsilon) +
@@ -66,7 +59,8 @@ class WMLE:
 
     def gradient(self, beta, X, y):
         n = X.shape[0]
-        weights = self.weights_factor(X)
+        # X is concatenated with one column of 1s
+        weights = self.weights_factor(X[:, 1:])
         X = X * weights[:, np.newaxis]
         return (1/n) * np.dot(np.transpose(X), sigmoid(np.dot(X, beta)) - y)
 
@@ -76,13 +70,13 @@ class WMLE:
         scale = m_estimator.scale_estimator(arr=X, axis=0)
         X = (X - loc)/scale
 
-        if self.fit_intercept:
-            X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
+        # add one column of 1s
+        X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
 
         if not self.warm_start_flag:
             x0 = np.ones(X.shape[1])
         else:
-            if len(self.beta_last_fit) == 0:
+            if (len(self.beta_last_fit) == 0) or (self.lbfgs_warnflag_record != 0):
                 x0 = np.ones(X.shape[1])
             else:
                 x0 = self.beta_last_fit.pop()
@@ -95,16 +89,15 @@ class WMLE:
 
         if self.warm_start_flag:
             self.beta_last_fit.append(optimal[0])
-        beta_norm = np.linalg.norm(optimal[0])
-
-        if beta_norm < 1e-4:
-            self.beta = optimal[0]
-        else:
-            self.beta = optimal[0] / np.linalg.norm(optimal[0])
-
-        if self.fit_intercept:
-            self.intercept_ = self.beta[0]
-        self.coef_ = self.beta[self.fit_intercept:]
+        # beta_norm = np.linalg.norm(optimal[0])
+        #
+        # if beta_norm < 1e-4:
+        #     self.beta = optimal[0]
+        # else:
+        #     self.beta = optimal[0] / np.linalg.norm(optimal[0])
+        self.beta = optimal[0]
+        self.intercept_[0] = self.beta[0]
+        self.coef_ = self.beta[1:]
         return self
 
     def predict(self, X, prob_threshold):
@@ -112,8 +105,7 @@ class WMLE:
             raise ValueError("MLE Model is not fitted yet")
         ss = StandardScaler()
         X = ss.fit_transform(X)
-        if self.fit_intercept:
-            X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
+        X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
         predict_prob = self.probability(self.beta, X)
         return np.array(predict_prob >= prob_threshold, dtype=int)
 
@@ -139,11 +131,12 @@ if __name__ == '__main__':
     # print('wmle consumed time: %.5f s' % (time.time() - t1))
 
     wmle = WMLE(fit_intercept=True, warm_start=True)
-    n = 10
+    n = 1
     accuracy_arr = np.zeros(n)
     t1 = time.time()
     for i in range(n):
         wmle.fit(X_train, y_train)
+        print(wmle.beta)
         accuracy_arr[i] = wmle.score(X_test, y_test)
     print("elapsed time: %.2f s" % (time.time() - t1))
     accuracy_arr.sort()

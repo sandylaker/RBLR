@@ -10,7 +10,7 @@ class Preprocessor(MEstimator):
         self.loc_estimated = None
         self.scale_estimated = None
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, **kwargs):
         if type(X) == pd.DataFrame:
             X = X.values
         X= np.asarray(X)

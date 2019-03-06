@@ -8,3 +8,4 @@ from rblr.simulation_setup import *
 from rblr.stratified_bootstrap import *
 from rblr.util_funcs import *
 from rblr.wmle import *
+from rblr.modified_stratified_bootstrap import ModifiedStraitifiedBootstrap

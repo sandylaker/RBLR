@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import expit
 
 def sigmoid(z):
     """
@@ -7,7 +8,7 @@ def sigmoid(z):
     :param z: int or float or array-like; input of the function
     :return: float or ndarray
     """
-    return 1 / (1 + np.exp(-z))
+    return expit(z)
 
 def deviance_residual(y, log_prob):
     """
