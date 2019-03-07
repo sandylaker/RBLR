@@ -27,7 +27,6 @@ class WMLE:
 
     def leverage(self, X):
         mcd = MinCovDet()
-        # in fit X is concatenated with a columns of 1s
         mcd.fit(X)
         loc, cov = mcd.location_, mcd.covariance_
         inversed_cov = np.linalg.inv(cov)
@@ -89,16 +88,12 @@ class WMLE:
 
         if self.warm_start_flag:
             self.beta_last_fit.append(optimal[0])
-        # beta_norm = np.linalg.norm(optimal[0])
-        #
-        # if beta_norm < 1e-4:
-        #     self.beta = optimal[0]
-        # else:
-        #     self.beta = optimal[0] / np.linalg.norm(optimal[0])
         self.beta = optimal[0]
         self.intercept_[0] = self.beta[0]
         self.coef_ = self.beta[1:]
         return self
+
+
 
     def predict(self, X, prob_threshold):
         if self.beta is None:
@@ -114,7 +109,6 @@ class WMLE:
         y_predicted = self.predict(X_test, prob_threshold)
         accuracy = np.mean(y_predicted == y_test)
         return accuracy
-
 
 if __name__ == '__main__':
     X_train, y_train, X_test, y_test = simulation_setup(

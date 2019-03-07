@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import expit
+from sklearn.covariance import MinCovDet
 
 def sigmoid(z):
     """
@@ -26,6 +27,20 @@ def deviance_residual(y, log_prob):
         raise ValueError("y must be encoded as 1 or 0")
     return (2 * y - 1) * np.sqrt(- 2 * (y * log_prob[:, 0] + (1 - y) * log_prob[:, 1]))
 
+def leverage(X):
+    mcd = MinCovDet()
+    mcd.fit(X)
+    loc, cov = mcd.location_, mcd.covariance_
+    inversed_cov = np.linalg.inv(cov)
+    result = np.zeros(X.shape[0])
+    for i, element in enumerate(X):
+        h = np.sqrt(
+            np.transpose(element - loc) @ inversed_cov @ (element - loc))
+        result[i] = h
+    return result
+
 
 if __name__ == '__main__':
     tau = sigmoid(np.arange(10))
+    X = np.random.randint(0, 100, (10, 10))
+    l = leverage(X)
