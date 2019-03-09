@@ -70,11 +70,15 @@ class ModifiedStraitifiedBootstrap(StratifiedBootstrap):
 
 
 if __name__ == '__main__':
-    X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=8,
-                                                        sigma_e=0.25)
-    mod_stbp = ModifiedStraitifiedBootstrap()
-    mod_stbp.fit(X_train, y_train, n_bootstrap=20, metric='leverage')
+    X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=10,
+                                                        sigma_e=0.2, sigma_o=10)
+    classical_lr = LogisticRegression(solver='lbfgs', max_iter=500)
+    classical_lr.fit(X_train, y_train)
 
+    mod_stbp = ModifiedStraitifiedBootstrap()
+    mod_stbp.fit(X_train, y_train, n_bootstrap=20, metric='leverage', n_strata=5)
+
+    print("classical LR accuracy: ", classical_lr.score(X_test, y_test))
     print("modified strafified bootstrap accuracy: ", mod_stbp.score(X_test, y_test))
 
 

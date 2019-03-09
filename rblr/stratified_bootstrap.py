@@ -2,15 +2,17 @@ import numpy as np
 from rblr.wmle import WMLE
 from rblr.simulation_setup import simulation_setup
 from sklearn.linear_model import LogisticRegression
-from rblr.classical_bootstrap import ClassicalBootstrap
 from rblr.util_funcs import deviance_residual
+from rblr.fast_wmle import FastWMLE
 import time
 from multiprocessing import Pool
+import matplotlib.pyplot as plt
 
 class StratifiedBootstrap:
 
-    def __init__(self, clipping=1.345, fit_intercept=True, warm_start=True):
+    def __init__(self, clipping=1.345, fit_intercept=True, warm_start=True, **kwargs):
         self.wmle = WMLE(clipping=clipping, fit_intercept=fit_intercept, warm_start=warm_start)
+        self.fast_wmle = FastWMLE(clipping=clipping, **kwargs)
         self.fit_intercept = self.wmle.fit_intercept
         self.beta = None
         self.intercept_ = [0]
@@ -89,7 +91,7 @@ class StratifiedBootstrap:
             n_samples_each_bootstrap=None,
             metric='residual',
             verbose=False,
-            n_jobs=None):
+            n_jobs=None, fast=True):
 
         y = np.asarray(y).astype(int)
         if y.ndim == 1:
@@ -109,29 +111,36 @@ class StratifiedBootstrap:
         self.beta = []
         self.lbfgs_warnflag_record_arr = []
 
-        # parallel execute WLME fitting
-        if not n_jobs is None:
-            pool = Pool(processes=n_jobs)
-            self.wmle.warm_start_flag = False
-            res = pool.map(self._element_fit, bootstrap_samples)
-            wmle_beta_arr, wmle_warnflag_arr = zip(*res)
-            self.beta = np.array(wmle_beta_arr)
-            self.lbfgs_warnflag_record_arr = np.array(wmle_warnflag_arr)
-        else:
-            # sequential execute WLME fitting
+        if fast:
             for i, X_concat_b in enumerate(bootstrap_samples):
-                if verbose:
-                    print("-----fit bootstrap sample No.{}-----".format(i))
                 # split X and y
                 X_b = X_concat_b[:, :-1]
                 y_b = X_concat_b[:, -1]
-                self.wmle.fit(X_b, y_b)
-                self.beta.append(self.wmle.beta)
-                self.lbfgs_warnflag_record_arr.append(self.wmle.lbfgs_warnflag_record)
-
-        if verbose:
-            failed_counts: int = np.sum(np.array(self.lbfgs_warnflag_record_arr) != 0)
-            print("L-BFGS failed to converge: %d / %d times" % (failed_counts, n_bootstrap))
+                self.fast_wmle.fit(X_b, y_b)
+                self.beta.append(np.concatenate((self.fast_wmle.intercept_, self.fast_wmle.coef_[0])))
+        else:
+            # parallel execute WLME fitting
+            if not n_jobs is None:
+                pool = Pool(processes=n_jobs)
+                self.wmle.warm_start_flag = False
+                res = pool.map(self._element_fit, bootstrap_samples)
+                wmle_beta_arr, wmle_warnflag_arr = zip(*res)
+                self.beta = np.array(wmle_beta_arr)
+                self.lbfgs_warnflag_record_arr = np.array(wmle_warnflag_arr)
+            else:
+                # sequential execute WLME fitting
+                for i, X_concat_b in enumerate(bootstrap_samples):
+                    if verbose:
+                        print("-----fit bootstrap sample No.{}-----".format(i))
+                    # split X and y
+                    X_b = X_concat_b[:, :-1]
+                    y_b = X_concat_b[:, -1]
+                    self.wmle.fit(X_b, y_b)
+                    self.beta.append(self.wmle.beta)
+                    self.lbfgs_warnflag_record_arr.append(self.wmle.lbfgs_warnflag_record)
+                failed_counts: int = np.sum(np.array(self.lbfgs_warnflag_record_arr) != 0)
+                if verbose:
+                    print("L-BFGS failed to converge: %d / %d times" % (failed_counts, n_bootstrap))
         self.beta = np.mean(self.beta, axis=0)
 
         self.intercept_[0] = self.beta[0]
@@ -164,26 +173,21 @@ if __name__ == '__main__':
     # n_candidates = np.arange(3, 6)
     # stbp = StratifiedBootstrap()
     # resamples = stbp.resample(stratas, 3, n_candidates)
+    score_arr = np.zeros(100)
+    for i in range(100):
+        np.random.seed()
+        X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=8,
+                                                              sigma_e=0.25)
+        stbp =StratifiedBootstrap(warm_start=True, fit_intercept=True, max_iter=200)
+        t1 = time.time()
+        stbp.fit(X_train, y_train,
+                 n_bootstrap=20, n_strata=10,
+                 metric='residual', verbose=False,
+                 n_jobs=20)
+        print("Consumed time of Stratified Bootstrap fit %.2f s" % (time.time() - t1))
+        score_arr[i] = stbp.score(X_test, y_test)
 
-    X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=8,
-                                                          sigma_e=0.25)
-    stbp =StratifiedBootstrap(warm_start=True, fit_intercept=True)
-    t1 = time.time()
-    stbp.fit(X_train, y_train,
-             n_bootstrap=20, n_strata=10,
-             metric='residual', verbose=False,
-             n_jobs=20)
-    print("Consumed time of Stratified Bootstrap fit %.2f s" % (time.time() - t1))
-
-    lr = LogisticRegression(fit_intercept=True, solver='lbfgs')
-    lr.fit(X_train, y_train)
-
-    clbp = ClassicalBootstrap()
-    clbp.fit(X_train, y_train, n_bootstrap=20)
-
-    print("Classical LR accuracy: ", lr.score(X_test, y_test))
-    print("Classical Bootstrap accuracy: ", clbp.score(X_test, y_test))
-    print("Stratified Bootstrap accuracy: ", stbp.score(X_test, y_test))
-
+    plt.hist(score_arr, bins=10)
+    plt.show()
 
 

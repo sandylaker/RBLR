@@ -39,7 +39,9 @@ class WMLE:
 
     def weights_factor(self, X):
         leverage = self.leverage(X)
-        return self.huber.m_weights(leverage)
+        m_estimator = MEstimator()
+        loc = m_estimator.loc_estimator(leverage)
+        return self.huber.m_weights(leverage - loc)
 
     def probability(self, beta, X):
         return sigmoid(np.dot(X, beta))
@@ -111,8 +113,6 @@ class WMLE:
         return accuracy
 
 if __name__ == '__main__':
-    X_train, y_train, X_test, y_test = simulation_setup(
-        n_i=1000, n_o=300, n_t=1000, p=10, sigma_e=0.25)
     # wmle = WMLE(fit_intercept=True)
     # t1 = time.time()
     # wmle.fit(X_train, y_train)
@@ -124,13 +124,16 @@ if __name__ == '__main__':
     # print("Classical LR accuracy: ", lr.score(X_test, y_test))
     # print('wmle consumed time: %.5f s' % (time.time() - t1))
 
-    wmle = WMLE(fit_intercept=True, warm_start=True)
-    n = 1
+
+    n = 5
     accuracy_arr = np.zeros(n)
     t1 = time.time()
     for i in range(n):
+        np.random.seed()
+        X_train, y_train, X_test, y_test = simulation_setup(
+            n_i=1000, n_o=0, n_t=1000, p=10, sigma_e=0.25)
+        wmle = WMLE(fit_intercept=True, warm_start=False)
         wmle.fit(X_train, y_train)
-        print(wmle.beta)
         accuracy_arr[i] = wmle.score(X_test, y_test)
     print("elapsed time: %.2f s" % (time.time() - t1))
     accuracy_arr.sort()
