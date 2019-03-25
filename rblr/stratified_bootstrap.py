@@ -1,4 +1,6 @@
 import numpy as np
+from numpy.core._multiarray_umath import ndarray
+
 from rblr.wmle import WMLE
 from rblr.simulation_setup import simulation_setup
 from sklearn.linear_model import LogisticRegression
@@ -6,7 +8,6 @@ from rblr.util_funcs import deviance_residual
 from rblr.fast_wmle import FastWMLE
 import time
 from multiprocessing import Pool
-import matplotlib.pyplot as plt
 
 class StratifiedBootstrap:
 
@@ -29,25 +30,31 @@ class StratifiedBootstrap:
             lr = LogisticRegression(fit_intercept=self.fit_intercept, solver='lbfgs')
             lr.fit(X_, y_)
             log_prob = lr.predict_log_proba(X_)
-            metric_arr = deviance_residual(y_, log_prob)
+            metric_arr = np.abs(deviance_residual(y_, log_prob))
         else:
             raise ValueError("set sort metric either to 'residual' or 'leverage' ")
-        stratas = []
+        stratas = None
         counts = []
-        if not X_y.shape[0] % n_strata == 0:
-            q = np.linspace(0, 1, n_strata + 1)
-            bins = np.quantile(metric_arr, q)
-            for i in range(len(bins) - 2):
-                stratas.append(X_y[(metric_arr >= bins[i]) & (metric_arr < bins[i+1])])
-                counts.append(len(X_y[-1]))
-            # append the stratum from last bin
-            stratas.append(X_y[(metric_arr >= bins[-2]) & (metric_arr <= bins[-1])])
-            counts.append(len(stratas[-1]))
-        else:
-            order = np.argsort(metric_arr)
-            X_y = X_y[order]
-            stratas = np.split(X_y, n_strata)
-            counts = [len(stratas[0])] * len(stratas)
+        # if not X_y.shape[0] % n_strata == 0:
+        #         #     q = np.linspace(0, 1, n_strata + 1)
+        #         #     bins = np.quantile(metric_arr, q)
+        #         #     for i in range(len(bins) - 2):
+        #         #         stratas.append(X_y[(metric_arr >= bins[i]) & (metric_arr < bins[i+1])])
+        #         #         counts.append(len(X_y[-1]))
+        #         #     # append the stratum from last bin
+        #         #     stratas.append(X_y[(metric_arr >= bins[-2]) & (metric_arr <= bins[-1])])
+        #         #     counts.append(len(stratas[-1]))
+        #         # else:
+        #         #     order = np.argsort(metric_arr)
+        #         #     X_y = X_y[order]
+        #         #     stratas = np.split(X_y, n_strata)
+        #         #     counts = [len(stratas[0])] * len(stratas)
+        order = np.argsort(metric_arr)
+        X_y = X_y[order]
+        stratas = np.array_split(X_y, n_strata, axis=0)
+
+        for stratum in stratas:
+            counts.append(stratum.shape[0])
         return stratas, np.array(counts)
 
     def get_n_candidates(self, n_samples_each_bootstrap, counts):
@@ -157,6 +164,10 @@ class StratifiedBootstrap:
         self.wmle.set_beta(beta=self.beta)
         return self.wmle.predict(X_predict, prob_threshold)
 
+    def predict_proba(self, X):
+        self.wmle.set_beta(beta=self.beta)
+        return self.wmle.predict_proba(X)
+
     def score(self, X_test, y_test, prob_threshold=0.5):
         y_test = np.array(y_test, dtype=int)
         y_predict = self.predict(X_test, prob_threshold)
@@ -173,21 +184,21 @@ if __name__ == '__main__':
     # n_candidates = np.arange(3, 6)
     # stbp = StratifiedBootstrap()
     # resamples = stbp.resample(stratas, 3, n_candidates)
-    score_arr = np.zeros(100)
-    for i in range(100):
+    score_arr = np.zeros(1)
+    for i in range(1):
         np.random.seed()
-        X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=8,
+        X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=10,
                                                               sigma_e=0.25)
-        stbp =StratifiedBootstrap(warm_start=True, fit_intercept=True, max_iter=200)
+        stbp =StratifiedBootstrap(warm_start=True, fit_intercept=True, max_iter=500)
         t1 = time.time()
         stbp.fit(X_train, y_train,
-                 n_bootstrap=20, n_strata=10,
+                 n_bootstrap=5, n_strata= 10,
                  metric='residual', verbose=False,
-                 n_jobs=20)
+                 fast=True)
         print("Consumed time of Stratified Bootstrap fit %.2f s" % (time.time() - t1))
         score_arr[i] = stbp.score(X_test, y_test)
 
-    plt.hist(score_arr, bins=10)
-    plt.show()
+    # plt.hist(score_arr, bins=10)
+    # plt.show()
 
 

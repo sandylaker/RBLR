@@ -97,14 +97,19 @@ class WMLE:
 
 
 
-    def predict(self, X, prob_threshold):
+    def predict_proba(self, X):
         if self.beta is None:
             raise ValueError("MLE Model is not fitted yet")
         ss = StandardScaler()
         X = ss.fit_transform(X)
         X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
-        predict_prob = self.probability(self.beta, X)
-        return np.array(predict_prob >= prob_threshold, dtype=int)
+        proba_1 = self.probability(self.beta, X).reshape(-1, 1)
+        proba_0 = 1 - proba_1
+        return np.concatenate((proba_0, proba_1), axis=1)
+
+
+    def predict(self, X, prob_threshold):
+        return np.array(self.predict_proba(X)[:, -1] >= prob_threshold, dtype=int)
 
     def score(self, X_test, y_test, prob_threshold=0.5):
         y_test = np.array(y_test, dtype=int)

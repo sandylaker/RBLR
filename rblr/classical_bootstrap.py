@@ -48,6 +48,15 @@ class ClassicalBootstrap:
 
         return self
 
+    def predict_proba(self, X):
+        ss = StandardScaler()
+        X = np.concatenate((np.ones((X.shape[0], 1)), ss.fit_transform(X)), axis=1)
+        if self.beta is None:
+            raise ValueError("Model is not fitted yet")
+        prob_1 = sigmoid(np.dot(X, self.beta)).reshape(-1, 1)
+        prob_0 = 1 - prob_1
+        return np.concatenate((prob_0, prob_1), axis=1)
+
     def predict(self, X, prob_threshold=0.5):
         """
         predict labels for test data
@@ -61,12 +70,8 @@ class ClassicalBootstrap:
         :return: ndarray, shape(n_samples,)
                 predicted labels, which are coded with {1,0}
         """
-        ss = StandardScaler()
-        X = np.concatenate((np.ones((X.shape[0], 1)), ss.fit_transform(X)), axis=1)
-        if self.beta is None:
-            raise ValueError("Model is not fitted yet")
-        predict_prob = sigmoid(np.dot(X, self.beta))
-        return np.array(predict_prob >= prob_threshold, dtype=int)
+
+        return np.array(self.predict_proba(X)[:, -1] >= prob_threshold, dtype=int)
 
     def score(self, X_test, y_test, prob_threshold=0.5):
         """

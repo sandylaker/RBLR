@@ -115,5 +115,20 @@ def simulation_setup(n_i=1000,
         return X_train, y_train, X_test, y_test
 
 
+def imbalanced_simulation(shrink=0.2, **kwargs):
+    n_i = kwargs['n_i']
+    X_train, y_train, X_test, y_test = simulation_setup(**kwargs)
+    Xy_train = np.concatenate((X_train, y_train.reshape(-1, 1)), axis=1)
+    Xy_in = Xy_train[:n_i]
+    Xy_out =Xy_train[n_i:]
+    Xy_in_0, Xy_in_1 = Xy_in[Xy_in[:, -1] == 0], Xy_in[Xy_in[:, -1] == 1]
+    n_in_0 = int(shrink * Xy_in_0.shape[0])
+    idx_0 = np.random.choice(Xy_in_0.shape[0], n_in_0)
+    Xy_in_0 = Xy_in_0[idx_0]
+    Xy_train = np.concatenate((Xy_in_0, Xy_in_1, Xy_out), axis=0)
+    np.random.shuffle(Xy_train)
+    X_train, y_train = Xy_train[:, :-1], Xy_train[:, -1].astype(int)
+    return X_train, y_train, X_test, y_test
+
 if __name__ == '__main__':
     X_train, y_train, X_test, y_test = simulation_setup()

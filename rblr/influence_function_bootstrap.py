@@ -3,6 +3,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.covariance import MinCovDet
 from sklearn.preprocessing import StandardScaler
 from rblr.util_funcs import sigmoid
+from rblr import simulation_setup
 
 class IFB:
 
@@ -140,8 +141,9 @@ class IFB:
 
         :param quantile_factor: double, default: 0.9,
                 the quantile_factor for determining the turning constant in computing the weights
-                for sampling. By default, the turning constant is 0.9 quantile of the sorted RESIF
-                array.
+                for sampling, this factor is only useful when the constant c is not given.
+                By default, the turning constant is 0.9 quantile of the sorted RESIF
+                array, if c is None.
 
         :param kwargs: keyword arguments of logistic regression model
 
@@ -189,26 +191,27 @@ class IFB:
         self.coef_ = self.beta[1:]
         return self
 
-    def predict(self, X, prob_threshold=0.5):
+    def predict_proba(self, X):
         """
         predict labels for test data
 
         :param X: ndarray, shape(n_samples, n_features)
                         data to be predicted
 
-        :param prob_threshold: double, default: 0.5,
-                            probability threshold for determining the predicted labels.
-
-        :return: ndarray, shape(n_samples,)
-                predicted labels, which are coded with {1,0}
+        :return: ndarray, shape(n_samples, n_class)
+                predicted probabilities of class 0 and 1
         """
         ss = StandardScaler()
         X = ss.fit_transform(X)
         if self.beta is None:
             raise ValueError("Model is not fitted yet")
         X = np.concatenate((np.ones((X.shape[0], 1), dtype=int), X), axis=1)
-        predict_prob = sigmoid(np.dot(X, self.beta))
-        return np.array(predict_prob >= prob_threshold, dtype=int)
+        prob_1 = sigmoid(np.dot(X, self.beta)).reshape(-1, 1)
+        prob_0 = 1 - prob_1
+        return np.concatenate((prob_0, prob_1), axis=1)
+
+    def predict(self, X, prob_threshold=0.5):
+        return np.array(self.predict_proba(X)[:, -1] >= prob_threshold, dtype=int)
 
     def score(self, X_test, y_test, prob_threshold=0.5):
         """
@@ -234,14 +237,10 @@ class IFB:
 
 
 if __name__ == '__main__':
-    X = np.random.randint(0, 10, (100, 10))
-    X = np.concatenate((X, np.random.randint(10, 20, (10, 10))), axis=0)
+    X_train, y_train, X_test, y_test = simulation_setup(1000, 100, 1000, 10)
     ifb = IFB()
-    robust_mcd = ifb.resif(X)
-    psi_array = ifb.psi(robust_mcd, 7, 10)
-
-    weights_array = ifb.weights(robust_mcd, c=np.quantile(robust_mcd, 0.9), gamma=10)
-    sample_prob = ifb.sample_probability(X)
+    ifb.fit(X_train, y_train, quantile_factor=0.9)
+    score = ifb.score(X_test, y_test)
 
     # plt.figure(1)
     # plt.hist(robust_mcd, bins=50)

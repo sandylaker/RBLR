@@ -43,7 +43,6 @@ class Preprocessor(MEstimator):
         elif n_inliers < 1:
             n_inliers = np.floor(n_inliers * n_total, dtype=np.int64)
         T = 4 * np.sqrt(np.log(p) + np.log(n_inliers)) * np.max(self.scale_estimated)
-
         inlier_flag = np.less_equal(X_norm, T)
         X_in = X[inlier_flag]
 

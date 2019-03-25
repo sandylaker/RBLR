@@ -39,7 +39,8 @@ class ModifiedStraitifiedBootstrap(StratifiedBootstrap):
                 y_ = X_concat_b[:, -1].astype(int)
                 # check if there are two classes in the bootstrap sample
                 if np.unique(y_).shape[-1] == 1:
-                    raise ValueError("There is only one class of data in the bootstrap sample, so logistic regression "
+                    raise ValueError("There is only one class of data in the bootstrap sample, "
+                                     "so logistic regression "
                                      "model is unable to classify, please reduce number of strata")
                 self.clf_lr.fit(X_, y_)
                 beta = np.concatenate((self.clf_lr.intercept_, self.clf_lr.coef_[0]))
@@ -70,8 +71,8 @@ class ModifiedStraitifiedBootstrap(StratifiedBootstrap):
 
 
 if __name__ == '__main__':
-    X_train, y_train, X_test, y_test = simulation_setup(n_i=1000, n_o=200, n_t=1000, p=10,
-                                                        sigma_e=0.2, sigma_o=10)
+    X_train, y_train, X_test, y_test = simulation_setup(n_i=10000, n_o=3000, n_t=1000, p=10,
+                                                        sigma_e=0.25, sigma_o=10)
     classical_lr = LogisticRegression(solver='lbfgs', max_iter=500)
     classical_lr.fit(X_train, y_train)
 

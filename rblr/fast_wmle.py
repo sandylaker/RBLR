@@ -3,6 +3,7 @@ from sklearn.linear_model import LogisticRegression
 from rblr import Huber, MEstimator
 import numpy as np
 import matplotlib.pyplot as plt
+from rblr import simulation_setup
 
 class FastWMLE(LogisticRegression):
 
